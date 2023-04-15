@@ -48,7 +48,7 @@ apiRoutes.route("/feed").get(async function (req, res) {
   let bearerToken = '';
   let decodedToken = null;
   const bearerHeader = req.headers['authorization'];
-  console.info('bearerHeader', bearerHeader);
+  
   res.status(200)
   if (typeof bearerHeader !== 'undefined') {
     bearerToken = bearerHeader.split(' ')[1];
@@ -81,17 +81,27 @@ apiRoutes.route("/feed").get(async function (req, res) {
         if ( 'friends' in tokenResponse.data && tokenResponse.data.friends.length > 0 ) {
           console.info('added friends')
           friends = tokenResponse.data.friends;
-        } else {
-          console.info('no added friends1')
         }
-      } else {
-        console.info('no added friends2')
       }
       
-      console.info(friends);
     }); 
 
   friends.push(userToken);
+
+    // get the translated user values for the feed
+    let users = [];
+    await axios.post('http://localhost:5001/exchangeTokensForIdentity', {tokens: friends})
+      .then(async (userResponse) => {
+        if ( userResponse.status === 200 ) {
+          users = userResponse.data;
+          
+        } else {
+          console.error('could not retrieve identities for tokens')
+        }
+    });
+
+
+
 
   const db = req.app.locals.db;
   const collection = db.collection('posts'); // Replace 'your_collection_name' with the actual collection name.
@@ -99,14 +109,20 @@ apiRoutes.route("/feed").get(async function (req, res) {
   // Query the collection for documents where the field value is in the keySet
   const query = { token: { $in: friends } };
   const documents = await collection.find(query).toArray();
-  console.info(`found ${documents.length} posts from network, searched`, friends)
+  
 
   let sortedDocuments = documents.map(doc => {
-    return {...doc, sortableDate: new Date(doc.dateAdded).getTime() }
+    let identity = users.find(f => f.token === doc.token);
+    return {...doc, 
+            identity: {...identity},
+            sortableDate: new Date(doc.dateAdded).getTime()
+    }
   })
 
   sortedDocuments = sortedDocuments.sort( (a,b) => b.sortableDate - a.sortableDate)
 
+
+  
   res.status(200).json(sortedDocuments);
   /*
   // create a set of tokens
