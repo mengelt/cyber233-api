@@ -32,7 +32,7 @@ dbo.connectToServer(function (err) {
 async function startServer() {
   try {
 
-    console.log('\nStarting up BerkBook Social API');
+    console.log('\nStarting up OneSpace Social API');
 
     // Connect to MongoDB
     const client = await MongoClient.connect(MONGO_URI, {

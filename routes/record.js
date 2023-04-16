@@ -40,7 +40,52 @@ const decode = (token) => {
 // The router will be added as a middleware and will take control of requests starting with path /listings.
 const apiRoutes = express.Router();
 
+apiRoutes.route("/friends").get(async function (req, res) {
 
+  // get email from jwt
+  let bearerToken = '';
+  let decodedToken = null;
+  const bearerHeader = req.headers['authorization'];
+  
+  res.status(200)
+  if (typeof bearerHeader !== 'undefined') {
+    bearerToken = bearerHeader.split(' ')[1];
+    decodedToken = decode(bearerToken);
+    // TODO: Use the bearer token to authenticate the user
+  } else {
+    // Return a 401 Unauthorized response if the bearer token is missing
+    res.status(401).json({ error: 'bearer token not found in /feed request' });
+  }
+  
+  
+  // exchange user token for the email
+  let email = {email: decodedToken.email};
+  let userToken = "";
+  await axios.post('http://localhost:5001/exchange', email)
+  .then(async (tokenResponse) => {
+    userToken = tokenResponse.data.token;
+  });  
+  
+  
+  
+  // get friends of that token
+  let token = {token: userToken};
+  let friends = [];
+  await axios.post('http://localhost:5001/friends', token)
+    .then(async (tokenResponse) => {
+
+      if ( tokenResponse.status === 200 ) {
+        
+        if ( 'friends' in tokenResponse.data && tokenResponse.data.friends.length > 0 ) {
+          friends = tokenResponse.data.friends;
+        }
+      }
+      
+  }); 
+  
+  res.status(200).json(friends);
+
+})
 
 apiRoutes.route("/feed").get(async function (req, res) {
 
@@ -79,7 +124,6 @@ apiRoutes.route("/feed").get(async function (req, res) {
       if ( tokenResponse.status === 200 ) {
         
         if ( 'friends' in tokenResponse.data && tokenResponse.data.friends.length > 0 ) {
-          console.info('added friends')
           friends = tokenResponse.data.friends;
         }
       }
@@ -197,8 +241,8 @@ apiRoutes.route("/login").post(async function (req, res) {
   let tokenResponse = await axios.post('http://localhost:5001/login', user);
 
   if ( 'user' in tokenResponse.data ) {
-    console.info('user verified');
-
+    console.info('user verified as ', tokenResponse.data);
+    
     const jwt = sign(tokenResponse.data.user, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
     res.status(200).json({ token: jwt });
     
